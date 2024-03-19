@@ -5,9 +5,12 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+
 
 contract NFTMarketplace is AccessControl, ERC721URIStorage {
     using Counters for Counters.Counter;
+    using SafeMath for uint256;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant CREATOR_ROLE = keccak256("CREATOR_ROLE");
@@ -25,6 +28,7 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage {
     Counters.Counter private _tokenIdCounter;
     address payable public owner;
     uint256 listPrice = 0.001 ether;
+    uint256 public constant CONTRACT_FEE_PERCENT = 5;
     mapping(uint256 => uint256) public nftPrices; // Token ID => Price
     mapping(address => uint256) public balances; // Seller address => Balance
     mapping(uint256 => ListedToken) private idToListedToken;
@@ -46,21 +50,24 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage {
     }
 
     function createToken(string memory tokenURI, uint256 price) public payable onlyRole(CREATOR_ROLE) returns (uint256) {
-        require(hasRole(CREATOR_ROLE, msg.sender), "NFTMarketplace: Caller is not a creator");
         _tokenIdCounter.increment();
         uint256 newTokenId = _tokenIdCounter.current();
         _safeMint(msg.sender, newTokenId);
         _setTokenURI(newTokenId, tokenURI);
+        listNFT(newTokenId, price);
         return newTokenId;
     }
 
-    function listNFT(uint256 _tokenId, uint256 _price) external onlyRole(BUYER_ROLE) {
-        require(hasRole(BUYER_ROLE, msg.sender), "NFTMarketplace: Caller is not a seller");
+    function listNFT(uint256 _tokenId, uint256 _price) private onlyRole(CREATOR_ROLE) {
         require(_exists(_tokenId), "NFTMarketplace: Token ID does not exist");
-        require(nftPrices[_tokenId] > 0, "NFTMarketplace: NFT already listed");
         nftPrices[_tokenId] = _price;
-        idToListedToken[_tokenId].price = _price;
-        idToListedToken[_tokenId].isListed = true;
+        idToListedToken[_tokenId] = ListedToken({
+            tokenId: _tokenId,
+            owner: payable(msg.sender),
+            creator: payable(ownerOf(_tokenId)),
+            price: _price,
+            isListed: true
+        });
         emit TokenListedSuccess(
             _tokenId,
             ownerOf(_tokenId),
@@ -71,36 +78,33 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage {
     }
 
     function setPrice(uint256 _tokenId, uint256 _price) external onlyRole(SELLER_ROLE) {
-        require(hasRole(SELLER_ROLE, msg.sender), "NFTMarketplace: Caller is not a seller");
         require(_exists(_tokenId), "NFTMarketplace: Token ID does not exist");
         nftPrices[_tokenId] = _price;
         emit NFTPriceSet(_tokenId, _price);
     }
 
     function buyNFT(uint256 _tokenId) external payable onlyRole(BUYER_ROLE) {
-    require(_exists(_tokenId), "NFTMarketplace: Token ID does not exist");
-    require(nftPrices[_tokenId] > 0, "NFTMarketplace: NFT not for sale");
-    require(msg.value >= nftPrices[_tokenId], "NFTMarketplace: Insufficient funds");
+        require(nftPrices[_tokenId] > 0, "NFTMarketplace: NFT not for sale");
+        require(msg.value >= nftPrices[_tokenId], "NFTMarketplace: Insufficient funds");
 
-    address seller = ownerOf(_tokenId);
-    uint256 price = nftPrices[_tokenId];
-    uint256 contractFee = price * 5 / 100;
-    uint256 sellerProceeds = price - contractFee;
+        address seller = ownerOf(_tokenId);
+        uint256 price = nftPrices[_tokenId];
+        uint256 contractFee = price.mul(CONTRACT_FEE_PERCENT).div(100);
+        uint256 sellerProceeds = price.sub(contractFee);
 
-    balances[seller] += sellerProceeds;
-    balances[address(this)] += contractFee;
+        balances[seller] = balances[seller].add(sellerProceeds);
+        balances[address(this)] = balances[address(this)].add(contractFee);
 
-    payable(seller).transfer(sellerProceeds);
-    emit NFTSold(_tokenId, msg.sender, price);
+        _transfer(seller, msg.sender, _tokenId);
+        emit NFTSold(_tokenId, msg.sender, price);
     }
 
 
-    function withdraw() external onlyRole(ADMIN_ROLE) {
-        require(hasRole(ADMIN_ROLE, msg.sender), "NFTMarketplace: Caller is not an admin");
-        require(balances[msg.sender] > 0, "NFTMarketplace: No balance to withdraw");
+    function withdraw() external  {
         uint256 amount = balances[msg.sender];
         balances[msg.sender] = 0;
-        payable(msg.sender).transfer(amount);
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "NFTMarketplace: Transfer failed");
     }
 
     function assignRole(address _address, bytes32 _role) external onlyRole(ADMIN_ROLE) {
@@ -133,6 +137,10 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage {
             }
         }
         return listedTokens;
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view override(AccessControl, ERC721) returns (bool) {
+    return super.supportsInterface(interfaceId);
     }
 
     function sellNfts(uint256 _tokenId) public payable{

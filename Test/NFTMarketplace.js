@@ -1,4 +1,5 @@
-const { expect } = require("chai");
+const { ethers } = require("hardhat");
+let expect;
 
 describe("NFTMarketplace", function () {
     let nftMarketplace;
@@ -9,6 +10,8 @@ describe("NFTMarketplace", function () {
     let tokenId;
 
     beforeEach(async function () {
+        const chai = await import('chai');
+        expect = chai.expect;
         const NFTMarketplace = await ethers.getContractFactory("NFTMarketplace");
         nftMarketplace = await NFTMarketplace.deploy();
         await nftMarketplace.deployed();
@@ -33,38 +36,45 @@ describe("NFTMarketplace", function () {
     }
 
     it("should create a token", async function () {
-        const tokenURI = "https://example.com/token";
-        const price = ethers.utils.parseEther("1");
-
-        await nftMarketplace.connect(creator).createToken(tokenURI, price);
-
-        const tokenId = await nftMarketplace._tokenIdCounter();
+        const tokenId = await createToken();
         const tokenOwner = await nftMarketplace.ownerOf(tokenId);
         const tokenURIStored = await nftMarketplace.tokenURI(tokenId);
 
+        console.log(`Token owner: ${tokenOwner}`);
+        console.log(`Stored token URI: ${tokenURIStored}`);
+
         expect(tokenOwner).to.equal(creator.address);
-        expect(tokenURIStored).to.equal(tokenURI);
+        expect(tokenURIStored).to.equal("https://example.com/token");
     });
 
-    it("should list an NFT", async function () {
+
+    it("should buy an NFT", async function () {
+        const tokenId = await createToken();
         const price = ethers.utils.parseEther("1");
+        const initialBuyerBalance = await ethers.provider.getBalance(buyer.address);
 
-        await nftMarketplace.connect(buyer).listNFT(tokenId, price);
+        await nftMarketplace.connect(buyer).buyNFT(tokenId, { value: price });
 
-        const listedToken = await nftMarketplace.idToListedToken(tokenId);
+        const tokenOwner = await nftMarketplace.ownerOf(tokenId);
+        const finalBuyerBalance = await ethers.provider.getBalance(buyer.address);
 
-        expect(listedToken.price).to.equal(price);
-        expect(listedToken.isListed).to.be.true;
+        console.log(`New token owner: ${tokenOwner}`);
+        console.log(`Final buyer balance: ${finalBuyerBalance}`);
+
+        expect(tokenOwner).to.equal(buyer.address);
+        expect(finalBuyerBalance).to.be.above(initialBuyerBalance.sub(price));
     });
 
-    it("should set the price of an NFT", async function () {
-        const price = ethers.utils.parseEther("1");
+    it("should withdraw balance", async function () {
+        const initialOwnerBalance = await ethers.provider.getBalance(owner.address);
 
-        await nftMarketplace.connect(seller).setPrice(tokenId, price);
+        await nftMarketplace.connect(owner).withdraw();
 
-        const nftPrice = await nftMarketplace.nftPrices(tokenId);
+        const finalOwnerBalance = await ethers.provider.getBalance(owner.address);
 
-        expect(nftPrice).to.equal(price);
+        console.log(`Final owner balance: ${finalOwnerBalance}`);
+
+        expect(finalOwnerBalance).to.be.above(initialOwnerBalance);
     });
 
     it("should buy an NFT", async function () {
