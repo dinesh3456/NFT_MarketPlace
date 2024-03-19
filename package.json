@@ -3,10 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@openzeppelin/contracts": "^4.4.1",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
+    "ethers": "^5.7.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
@@ -16,6 +18,7 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "deploy": "hardhat run --c hardhat.config.js scripts/deploy.js",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -37,7 +40,8 @@
     ]
   },
   "devDependencies": {
-    "chai": "^5.1.0",
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "chai": "^4.3.7",
     "hardhat": "^2.22.1"
   }
 }
