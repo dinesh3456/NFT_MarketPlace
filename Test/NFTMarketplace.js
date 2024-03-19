@@ -12,31 +12,36 @@ describe("NFTMarketplace", function () {
     beforeEach(async function () {
         const chai = await import('chai');
         expect = chai.expect;
-        const NFTMarketplace = await ethers.getContractFactory("NFTMarketplace");
-        nftMarketplace = await NFTMarketplace.deploy();
-        await nftMarketplace.deployed();
-
         [owner, creator, seller, buyer] = await ethers.getSigners();
-
-        await nftMarketplace.assignRole(creator.address, ethers.utils.id("CREATOR_ROLE"));
-        await nftMarketplace.assignRole(seller.address, ethers.utils.id("SELLER_ROLE"));
-        await nftMarketplace.assignRole(buyer.address, ethers.utils.id("BUYER_ROLE"));
-
-        tokenId = await createToken();
+        const NFTMarketplace = await ethers.getContractFactory("NFTMarketplace");
+        nftMarketplace = await NFTMarketplace.connect(owner).deploy();
+        await nftMarketplace.deployed();
+    
+        console.log("Assigning roles...");
+    
+        // Assign roles using keccak256 hashes of role names
+        await nftMarketplace.grantRole(await nftMarketplace.ADMIN_ROLE(), owner.address);
+        await nftMarketplace.grantRole(await nftMarketplace.CREATOR_ROLE(), creator.address);
+        await nftMarketplace.grantRole(await nftMarketplace.SELLER_ROLE(), seller.address);
+        await nftMarketplace.grantRole(await nftMarketplace.BUYER_ROLE(), buyer.address);
+        console.log("Roles assigned.");
+    
+        tokenId = await createAndListToken();
     });
 
-    async function createToken() {
+    async function createAndListToken() {
         const tokenURI = "https://example.com/token";
         const price = ethers.utils.parseEther("1");
-
-        await nftMarketplace.connect(creator).createToken(tokenURI, price);
-        const tokenId = await nftMarketplace._tokenIdCounter();
+        console.log("Creating and listing token...");
+        await nftMarketplace.connect(creator).createAndListToken(tokenURI, price);
+        console.log("Token created and listed.");
+        const tokenId = await nftMarketplace.getTokenIdCounter();
 
         return tokenId;
     }
 
     it("should create a token", async function () {
-        const tokenId = await createToken();
+        const tokenId = await createAndListToken();
         const tokenOwner = await nftMarketplace.ownerOf(tokenId);
         const tokenURIStored = await nftMarketplace.tokenURI(tokenId);
 
@@ -49,7 +54,7 @@ describe("NFTMarketplace", function () {
 
 
     it("should buy an NFT", async function () {
-        const tokenId = await createToken();
+        const tokenId = await createAndListToken();
         const price = ethers.utils.parseEther("1");
         const initialBuyerBalance = await ethers.provider.getBalance(buyer.address);
 

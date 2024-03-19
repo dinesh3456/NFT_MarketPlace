@@ -3,19 +3,20 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-
-contract NFTMarketplace is AccessControl, ERC721URIStorage {
+contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
     using Counters for Counters.Counter;
     using SafeMath for uint256;
 
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-    bytes32 public constant CREATOR_ROLE = keccak256("CREATOR_ROLE");
-    bytes32 public constant SELLER_ROLE = keccak256("SELLER_ROLE");
-    bytes32 public constant BUYER_ROLE = keccak256("BUYER_ROLE");
+    bytes32 public constant ADMIN_ROLE = keccak256(abi.encodePacked("ADMIN_ROLE"));
+    bytes32 public constant CREATOR_ROLE = keccak256(abi.encodePacked("CREATOR_ROLE"));
+    bytes32 public constant SELLER_ROLE = keccak256(abi.encodePacked("SELLER_ROLE"));
+    bytes32 public constant BUYER_ROLE = keccak256(abi.encodePacked("BUYER_ROLE"));
+
 
     struct ListedToken {
         uint256 tokenId;
@@ -46,44 +47,51 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage {
 
     constructor() ERC721("NFTMarketplace", "NFTM"){
         owner = payable(msg.sender);
-        _setupRole(ADMIN_ROLE, msg.sender);
+        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+
     }
 
-    function createToken(string memory tokenURI, uint256 price) public payable onlyRole(CREATOR_ROLE) returns (uint256) {
-        _tokenIdCounter.increment();
-        uint256 newTokenId = _tokenIdCounter.current();
-        _safeMint(msg.sender, newTokenId);
-        _setTokenURI(newTokenId, tokenURI);
-        listNFT(newTokenId, price);
-        return newTokenId;
+    modifier onlyRoleCustom(bytes32 role) {
+        require(hasRole(role, msg.sender), "NFTMarketplace: Caller is not in the required role");
+        _;
     }
 
-    function listNFT(uint256 _tokenId, uint256 _price) private onlyRole(CREATOR_ROLE) {
-        require(_exists(_tokenId), "NFTMarketplace: Token ID does not exist");
-        nftPrices[_tokenId] = _price;
-        idToListedToken[_tokenId] = ListedToken({
-            tokenId: _tokenId,
-            owner: payable(msg.sender),
-            creator: payable(ownerOf(_tokenId)),
-            price: _price,
-            isListed: true
-        });
-        emit TokenListedSuccess(
-            _tokenId,
-            ownerOf(_tokenId),
-            idToListedToken[_tokenId].creator,
-            _price,
-            true
-        );
-    }
+    function createAndListToken(string memory tokenURI, uint256 price) public payable onlyRole(CREATOR_ROLE) returns (uint256) {
+    _tokenIdCounter.increment();
+    uint256 newTokenId = _tokenIdCounter.current();
+    _safeMint(msg.sender, newTokenId);
+    _setTokenURI(newTokenId, tokenURI);
 
+    // List the token for sale
+    address tokenOwner = ownerOf(newTokenId);
+    require(tokenOwner != address(0), "NFTMarketplace: Token ID does not exist");
+
+    nftPrices[newTokenId] = price;
+    idToListedToken[newTokenId] = ListedToken({
+        tokenId: newTokenId,
+        owner: payable(msg.sender),
+        creator: payable(ownerOf(newTokenId)),
+        price: price,
+        isListed: true
+    });
+    emit TokenListedSuccess(
+        newTokenId,
+        ownerOf(newTokenId),
+        idToListedToken[newTokenId].creator,
+        price,
+        true
+    );
+
+    return newTokenId;
+    }
     function setPrice(uint256 _tokenId, uint256 _price) external onlyRole(SELLER_ROLE) {
-        require(_exists(_tokenId), "NFTMarketplace: Token ID does not exist");
+        address tokenOwner = ownerOf(_tokenId);
+        require(tokenOwner != address(0), "NFTMarketplace: Token ID does not exist");
         nftPrices[_tokenId] = _price;
         emit NFTPriceSet(_tokenId, _price);
     }
 
-    function buyNFT(uint256 _tokenId) external payable onlyRole(BUYER_ROLE) {
+    function buyNFT(uint256 _tokenId) external payable onlyRole(BUYER_ROLE) nonReentrant {
         require(nftPrices[_tokenId] > 0, "NFTMarketplace: NFT not for sale");
         require(msg.value >= nftPrices[_tokenId], "NFTMarketplace: Insufficient funds");
 
@@ -100,7 +108,8 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage {
     }
 
 
-    function withdraw() external  {
+    function withdraw() external nonReentrant  {
+        require(balances[msg.sender] > 0, "NFTMarketplace: No balance to withdraw");
         uint256 amount = balances[msg.sender];
         balances[msg.sender] = 0;
         (bool success, ) = msg.sender.call{value: amount}("");
@@ -139,11 +148,16 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage {
         return listedTokens;
     }
 
-    function supportsInterface(bytes4 interfaceId) public view override(AccessControl, ERC721) returns (bool) {
-    return super.supportsInterface(interfaceId);
+   function supportsInterface(bytes4 interfaceId) public view override(ERC721, AccessControl) returns (bool) {
+        return super.supportsInterface(interfaceId);
     }
 
-    function sellNfts(uint256 _tokenId) public payable{
+    function getTokenIdCounter() public view returns (uint256) {
+        return Counters.current(_tokenIdCounter);
+    }
+
+
+    function sellNfts(uint256 _tokenId) public payable {
         require(idToListedToken[_tokenId].isListed, "NFTMarketplace: NFT not listed");
         require(hasRole(SELLER_ROLE, msg.sender), "NFTMarketplace: Caller is not a seller");
         require(msg.value >= idToListedToken[_tokenId].price, "NFTMarketplace: Insufficient funds");
@@ -162,6 +176,5 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage {
         payable(owner).transfer(msg.value * 5 / 100);
 
         emit NFTSold(_tokenId, msg.sender, price);
-        
     } 
 }

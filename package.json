@@ -8,7 +8,10 @@
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
+    "chai": "^4.4.1",
     "ethers": "^5.7.2",
+    "hardhat": "^2.22.1",
+    "hardhat-chai-matchers": "^0.0.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
@@ -40,8 +43,6 @@
     ]
   },
   "devDependencies": {
-    "@nomiclabs/hardhat-ethers": "^2.2.3",
-    "chai": "^4.3.7",
-    "hardhat": "^2.22.1"
+    "@nomiclabs/hardhat-ethers": "^2.2.3"
   }
 }
