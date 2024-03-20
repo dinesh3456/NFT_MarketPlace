@@ -47,7 +47,7 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
 
     constructor() ERC721("NFTMarketplace", "NFTM"){
         owner = payable(msg.sender);
-        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
     }
 
@@ -116,11 +116,27 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
         require(success, "NFTMarketplace: Transfer failed");
     }
 
-    function assignRole(address _address, bytes32 _role) external onlyRole(ADMIN_ROLE) {
-        grantRole(_role, _address);
+    // function assignRole(address _address, bytes32 _role) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    //     grantRole(_role, _address);
+    // }
+
+    function assignCreatorRole(address _address) external  onlyRole(DEFAULT_ADMIN_ROLE){
+        grantRole(CREATOR_ROLE, _address);
     }
 
-    function revokeRole(address _address, bytes32 _role) external onlyRole(ADMIN_ROLE) {
+    function assignBuyerRole(address _address) external  onlyRole(DEFAULT_ADMIN_ROLE){
+        grantRole(BUYER_ROLE, _address);
+    }
+
+    function assignSellerRole(address _address) external  onlyRole(DEFAULT_ADMIN_ROLE){
+        grantRole(SELLER_ROLE, _address);
+    }
+
+    function assignAdminRole(address _address) external  onlyRole(DEFAULT_ADMIN_ROLE){
+        grantRole(ADMIN_ROLE, _address);
+    }
+
+    function revokeRole(address _address, bytes32 _role) external onlyRole(DEFAULT_ADMIN_ROLE) {
         revokeRole(_role, _address);
     }
 
@@ -140,12 +156,23 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
     function getMyNfts() public view returns (ListedToken[] memory) {
         uint256 totalListedTokens = _tokenIdCounter.current();
         ListedToken[] memory listedTokens = new ListedToken[](totalListedTokens);
+        uint256 counter = 0;
         for (uint256 i = 0; i < totalListedTokens; i++) {
             if (idToListedToken[i].owner == msg.sender) {
-                listedTokens[i] = idToListedToken[i];
-            }
+                listedTokens[counter] = idToListedToken[i];
+                counter++;
+            }   
         }
-        return listedTokens;
+        // Create a new array with the correct length
+        ListedToken[] memory myTokens = new ListedToken[](counter);
+        for (uint256 i = 0; i < counter; i++) {
+            myTokens[i] = listedTokens[i];
+        }
+        return myTokens;
+    }
+
+    function getListedTokenForId(uint256 tokenId) public view returns (ListedToken memory) {
+        return idToListedToken[tokenId];
     }
 
    function supportsInterface(bytes4 interfaceId) public view override(ERC721, AccessControl) returns (bool) {
@@ -157,7 +184,7 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
     }
 
 
-    function sellNfts(uint256 _tokenId) public payable {
+    function sellNfts(uint256 _tokenId) public payable onlyRole(SELLER_ROLE) {
         require(idToListedToken[_tokenId].isListed, "NFTMarketplace: NFT not listed");
         require(hasRole(SELLER_ROLE, msg.sender), "NFTMarketplace: Caller is not a seller");
         require(msg.value >= idToListedToken[_tokenId].price, "NFTMarketplace: Insufficient funds");

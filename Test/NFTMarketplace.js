@@ -14,7 +14,7 @@ describe("NFTMarketplace", function () {
         expect = chai.expect;
         [owner, creator, seller, buyer] = await ethers.getSigners();
         const NFTMarketplace = await ethers.getContractFactory("NFTMarketplace");
-        nftMarketplace = await NFTMarketplace.connect(owner).deploy();
+        nftMarketplace = await NFTMarketplace.deploy();
         await nftMarketplace.deployed();
     
         console.log("Assigning roles...");
