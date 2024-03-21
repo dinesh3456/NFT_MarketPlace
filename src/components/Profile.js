@@ -28,13 +28,9 @@ export default function Profile() {
         signer
       );
 
-      //create an NFT Token
-      let transaction = await contract.getMyNFTs();
+      let transaction = await contract.getMyNfts();
 
-      /*
-       * Below function takes the metadata from tokenURI and the data returned by getMyNFTs() contract function
-       * and creates an object of information that is to be displayed
-       */
+     
 
       const items = await Promise.all(
         transaction.map(async (i) => {
@@ -63,8 +59,7 @@ export default function Profile() {
       updateTotalPrice(sumPrice.toFixed(3));
     } catch (error) {
       console.error("Error fetching NFT data:", error);
-      // Handle the error, e.g., display a friendly message to the user
-      // You can also update the state to reflect the error state if needed
+      
     }
   }
 

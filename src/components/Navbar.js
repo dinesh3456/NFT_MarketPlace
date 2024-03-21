@@ -2,14 +2,13 @@ import fullLogo from "../full_logo.png";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router";
-
+const ethers = require("ethers");
 function Navbar() {
   const [connected, toggleConnect] = useState(false);
   const location = useLocation();
   const [currAddress, updateAddress] = useState("0x");
 
   async function getAddress() {
-    const ethers = require("ethers");
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     const signer = provider.getSigner();
     const addr = await signer.getAddress();
@@ -26,41 +25,38 @@ function Navbar() {
   }
 
   async function connectWebsite() {
-    // Check if the Ethereum provider is available
     if (window.ethereum) {
       try {
-        // Request the user's permission to connect their wallet
         const accounts = await window.ethereum.request({
           method: "eth_requestAccounts",
         });
-
-        // Update the UI or perform additional actions after connecting
         updateButton();
         getAddress();
-        window.location.replace(location.pathname);
+        toggleConnect(true); // Update the connected state without triggering a re-render
       } catch (error) {
-        // Handle errors or user rejection
         console.error("Error connecting to MetaMask:", error.message);
       }
     } else {
       console.error("MetaMask provider not found");
     }
   }
-
   useEffect(() => {
-    if (window.ethereum == undefined) return;
-    let val = window.ethereum.isConnected();
-    if (val) {
-      console.log("here");
-      getAddress();
-      toggleConnect(val);
-      updateButton();
-    }
-
-    window.ethereum.on("accountsChanged", function (accounts) {
+    const handleAccountsChanged = (accounts) => {
       window.location.replace(location.pathname);
-    });
-  });
+    };
+
+    if (window.ethereum) {
+      let val = window.ethereum.isConnected();
+      if (val) {
+        console.log("here");
+        getAddress();
+        toggleConnect(val);
+        updateButton();
+      }
+
+      window.ethereum.on("accountsChanged", handleAccountsChanged);
+    }
+  }, [location.pathname]);
 
   return (
     <div className="">

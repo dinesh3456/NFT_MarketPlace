@@ -4,6 +4,8 @@ import NFTMarketplace from "../NFTMarketplace.json";
 import axios from "axios";
 import { useState } from "react";
 import { GetIpfsUrlFromPinata } from "../utils";
+const ethers = require("ethers");
+
 
 export default function Marketplace() {
   const sampleData = [
@@ -42,6 +44,46 @@ export default function Marketplace() {
   const [dataFetched, updateFetched] = useState(false);
 
   async function getAllNFTs() {
+    try{
+      if(typeof window.ethereum !== 'undefined'){
+        
+      
+       // const ethers = require("ethers");
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        let contract = new ethers.Contract(NFTMarketplace.address,NFTMarketplace.abi,signer);
+        let transaction = await contract.getAllNfts();
+
+        const items = await Promise.all(transaction.map(async i =>{
+        var tokenURI = await contract.tokenURI(i.tokenId);
+        console.log("Getting the tokenURI: ", tokenURI);
+        tokenURI = await GetIpfsUrlFromPinata(tokenURI);
+        let metadata = await axios.get(tokenURI);
+        metadata = metadata.data;
+
+        let price = ethers.utils.formatUnits(i.price.toString(), "ether");
+        let item={
+          price,
+          tokenId: i.tokenId.toNumber(),
+          seller: i.seller,
+          owner : i.owner,
+          image: metadata.image,
+          name: metadata.name,
+          description:metadata.description,
+        }
+    
+   
+        return item;
+      }))
+      updateFetched(true);
+      updateData(items);
+    }else{
+    console.log("Provider not found !!");
+  }
+  }
+    catch(e){
+      console.log("Error in fetching NFTs: ", e);
+    }
   }
 
   if (!dataFetched) getAllNFTs();
