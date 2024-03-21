@@ -42,59 +42,6 @@ export default function Marketplace() {
   const [dataFetched, updateFetched] = useState(false);
 
   async function getAllNFTs() {
-    const ethers = require("ethers");
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    const signer = provider.getSigner();
-    let contract = new ethers.Contract(
-      NFTMarketplace.address,
-      NFTMarketplace.abi,
-      signer
-    );
-
-    try {
-      let transaction = await contract.getAllNfts();
-
-      const items = await Promise.all(
-        transaction.map(async (i) => {
-          try {
-            var tokenURI = await contract.tokenURI(i.tokenId);
-            console.log("getting this tokenUri", tokenURI);
-            tokenURI = GetIpfsUrlFromPinata(tokenURI);
-            let meta = await axios.get(tokenURI);
-            meta = meta.data;
-
-            let price = ethers.utils.formatUnits(i.price.toString(), "ether");
-            let item = {
-              price,
-              tokenId: i.tokenId.toNumber(),
-              seller: i.seller,
-              owner: i.owner,
-              image: meta.image,
-              name: meta.name,
-              description: meta.description,
-            };
-            return item;
-          } catch (error) {
-            console.error("Error fetching NFT details:", error);
-            return {
-              price: "N/A",
-              tokenId: i.tokenId.toNumber(),
-              seller: "N/A",
-              owner: "N/A",
-              image: "N/A",
-              name: "Error fetching details",
-              description: "Error fetching details",
-            };
-          }
-        })
-      );
-
-      updateFetched(true);
-      updateData(items);
-    } catch (error) {
-      console.error("Error fetching NFTs:", error);
-      // Handle the error, e.g., show an error message or retry the operation
-    }
   }
 
   if (!dataFetched) getAllNFTs();

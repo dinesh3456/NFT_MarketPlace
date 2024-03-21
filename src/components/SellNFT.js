@@ -81,7 +81,7 @@ export default function SellNFT() {
       <div className="flex flex-col place-items-center mt-10" id="nftForm">
         <form className="bg-white shadow-md rounded px-8 pt-4 pb-8 mb-4">
           <h3 className="text-center font-bold text-black mb-8">
-            Upload your NFT to the marketplace
+            UPLOAD NFT TO SELL
           </h3>
           <div className="mb-4">
             <label
@@ -152,7 +152,7 @@ export default function SellNFT() {
           <div className="text-red-500 text-center">{message}</div>
           <button
             onClick={listNFT}
-            className="font-bold mt-10 w-full bg-purple-500 text-black rounded p-2 shadow-lg"
+            className="font-bold mt-10 w-full bg-green-500 text-black rounded p-2 shadow-lg"
             id="list-button"
           >
             List NFT
