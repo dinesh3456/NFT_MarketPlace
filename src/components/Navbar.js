@@ -9,11 +9,18 @@ function Navbar() {
   const [currAddress, updateAddress] = useState("0x");
 
   async function getAddress() {
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    const signer = provider.getSigner();
-    const addr = await signer.getAddress();
-    updateAddress(addr);
+    try {
+      const accounts = await window.ethereum.request({
+        method: "eth_accounts",
+      });
+      if (accounts.length > 0) {
+        updateAddress(accounts[0]);
+      }
+    } catch (error) {
+      console.error("Error getting address:", error.message);
+    }
   }
+  
 
   function updateButton() {
     const ethereumButton = document.querySelector(".enableEthereumButton");

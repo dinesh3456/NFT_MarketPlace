@@ -45,15 +45,17 @@ export default function Marketplace() {
 
   async function getAllNFTs() {
     try{
-      if(typeof window.ethereum !== 'undefined'){
+     // if(typeof window.ethereum !== 'undefined'){
         
       
        // const ethers = require("ethers");
+       
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
         let contract = new ethers.Contract(NFTMarketplace.address,NFTMarketplace.abi,signer);
+        
         let transaction = await contract.getAllNfts();
-
+        console.log("getting things ready");
         const items = await Promise.all(transaction.map(async i =>{
         var tokenURI = await contract.tokenURI(i.tokenId);
         console.log("Getting the tokenURI: ", tokenURI);
@@ -77,9 +79,9 @@ export default function Marketplace() {
       }))
       updateFetched(true);
       updateData(items);
-    }else{
-    console.log("Provider not found !!");
-  }
+    // }else{
+    // console.log("Provider not found !!");
+  // }
   }
     catch(e){
       console.log("Error in fetching NFTs: ", e);
